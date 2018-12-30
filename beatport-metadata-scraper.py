@@ -136,7 +136,8 @@ class google(object):
         #########################################
         ##### Parse Google search results ######
         titles = [ tit.text for tit in soup.findAll('h3', attrs={'class':'r'}) ]
-        urls = [ tit.text for tit in soup.findAll('cite') ]
+        # urls = [ tit.text for tit in soup.findAll('cite') ]
+        urls = [ tit.a['href'].split('&', 1)[0][7:] for tit in soup.findAll('h3', attrs={'class':'r'}) ]
 
         track_dur = re.compile(r'Length (\d+:\d+)[;\s]', re.IGNORECASE)
         times = [ track_dur.findall(dur.text)[0] if len(track_dur.findall(dur.text)) > 0  else 'n/a' for dur in soup.findAll('span', attrs={'class':'st'})]
@@ -250,5 +251,5 @@ print("Finished!")
 #########################################
 
 ########## Open artwork  ############
-os.system("open '"+ img_path + "'")
+os.system('open "'+ img_path + '"')
 #########################################
