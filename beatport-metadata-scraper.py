@@ -89,15 +89,24 @@ class beatport(object):
         #########################################
 
         ##### Select the appropriate track ######
-        str_idx = input("Which track index?...")
-        while (not str_idx or str_idx == ''):
+        validInput = False
+        while(not validInput):
             str_idx = input("Which track index?...")
-        idx = int(str_idx)
-        if idx == 0:
+            if str_idx:
+                idx = int(str_idx)
+                if idx == 0:
+                    break
+                elif idx < len(track_list):
+                    INDEX = idx - 1
+                    validInput = True
+                else:
+                    print("Invalid index...")
+            else:
+                break
+
+        if not validInput:
             print("Exiting...")
-            sys.exit()
-        else:
-            INDEX = idx - 1
+            sys.exit()            
 
         return track_list[INDEX]
 # End Beatport class
@@ -149,16 +158,25 @@ class google(object):
             print(str(index) + ". " + t + " : " + str(d) + " -> " + u)
             index = index + 1
 
-        str_idx = input("Which search result?...")
-        while (not str_idx or str_idx == ''):
+        validInput = False
+        while(not validInput):
             str_idx = input("Which search result?...")
-        idx = int(str_idx)
-        if idx == 0:
+            if str_idx:
+                idx = int(str_idx)
+                if idx == 0:
+                    break
+                elif idx < len(urls):
+                    INDEX = idx - 1
+                    url = urls[INDEX]
+                    validInput = True
+                else:
+                    print("Invalid index...")
+            else:
+                break
+
+        if not validInput:
             print("Exiting...")
             sys.exit()
-        else:
-            INDEX = idx - 1
-        url = urls[INDEX]
         #########################################
 
         #########################################
@@ -178,9 +196,13 @@ delimiter = None
 search_google = False
 search_str_arg_idx = 1
 
-if sys.argv[1] == 'g':
-   search_google = True
-   search_str_arg_idx = 2
+if len(sys.argv[1]) == 1:
+    if sys.argv[1] == 'g':
+        search_google = True
+        search_str_arg_idx = 2
+    else:
+        print("Unknown parameter...")
+        sys.exit()
 
 # If the command line arg has a hypen delimiter seperating artist and track print then set
 if sys.argv[search_str_arg_idx].find(" - ") != -1:
@@ -224,11 +246,10 @@ if not search_google:
 #########################################
 
 ############ Print metadata #############
-print()
-print("Title: \t\t" + data['title'])
-
 artist_l = beat_api.get_artists(data)
 
+print()
+print("Title: \t\t" + data['title'])
 print("Artist(s): \t" + artist_l)
 print("Duration: \t" + data['duration']['minutes'])
 print("BPM: \t\t" + str(data['bpm']))
@@ -238,6 +259,18 @@ print("Format: \t" + data['audio_format'] )
 print("Released: \t" + data['date']['released'])
 print("Genre: \t\t" + data['genres'][0]['name'])
 print("ID: \t\t" + str(data['id']))
+
+# print("Title : Artist(s): Duration: BPM: Key: Label: Format: Released: Genre: ID")
+# print(data['title'])
+# print(artist_l)
+# print(data['duration']['minutes'])
+# print(str(data['bpm']))
+# print(str(data['key']))
+# print(data['label']['name'] )
+# print(data['audio_format'] )
+# print(data['date']['released'])
+# print(data['genres'][0]['name'])
+# print(str(data['id']))
 
 # Download track art
 img_dir = "imgs/" 
