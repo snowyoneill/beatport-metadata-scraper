@@ -4,9 +4,17 @@ import os
 import sys
 import requests
 import json
-from urllib.parse import urlencode
+# from urllib.parse import urlencode
+try:
+    from urllib import urlencode
+except ImportError:
+    from urllib.parse import urlencode     
+
 from bs4 import BeautifulSoup
 import re
+
+from fake_useragent import UserAgent
+ua = UserAgent()
 
 #########################################
 # Beatport class for searching and extracting track metadata
@@ -24,7 +32,7 @@ class beatport(object):
         Html response from server
         '''
         search = "https://pro.beatport.com/search?"
-        value = urlencode({"q":str(artist + " " + title)}, safe='', encoding=None, errors=None)
+        value = urlencode({"q":str(artist + " " + title)})
 
         print("Request: " + search+value)
         return requests.get(search+value).text
@@ -129,10 +137,11 @@ class google(object):
         '''
         source = "beatport.com"
         search = "https://www.google.com/search?"
-        value = urlencode({"q":str(artist + " " + title) + " site:" + source}, safe='', encoding=None, errors=None)
+        value = urlencode({"q":str(artist + " " + title) + " site:" + source})
 
         print("Request: " + search+value)
-        return requests.get(search+value).text
+        # return requests.get(search+value).text
+        return requests.get(search+value, {"User-Agent": ua.random}).text
 
     def jsonify(self, html):
         '''
@@ -140,17 +149,48 @@ class google(object):
         :return:
         Only json string
         '''
-        soup = BeautifulSoup(html, 'lxml')
+        soup = BeautifulSoup(html, 'html.parser')
+        # soup = BeautifulSoup(html, 'lxml')
+        # with open("soup.html", "w") as file:
+        #     file.write(str(soup))
 
         #########################################
         ##### Parse Google search results ######
-        titles = [ tit.text for tit in soup.findAll('h3', attrs={'class':'r'}) ]
-        # urls = [ tit.text for tit in soup.findAll('cite') ]
-        urls = [ tit.a['href'].split('&', 1)[0][7:] for tit in soup.findAll('h3', attrs={'class':'r'}) ]
+        result_div = soup.find_all('div', attrs = {'class': 'ZINbbc'})
+
+        links = [ tit.find('a', href = True)['href'] for tit in result_div ]
+        headers = [ header.find('div', attrs={'class':'vvjwJb'})  for header in result_div  ]
+        # headers = [ header.get_text() for header in (r.find('div', attrs={'class':'vvjwJb'}) for r in result_div) if header is not None  ]
+        descriptions = [ soup.find('div', attrs={'class':'s3v9rd'}) for tit in result_div  ]
+        # descriptions = [ desc.get_text() for desc in (r.find('div', attrs={'class':'s3v9rd'}) for r in result_div) if desc is not None  ]
 
         track_dur = re.compile(r'Length (\d+:\d+)[;\s]', re.IGNORECASE)
-        times = [ track_dur.findall(dur.text)[0] if len(track_dur.findall(dur.text)) > 0  else 'n/a' for dur in soup.findAll('span', attrs={'class':'st'})]
+
+        titles = []
+        urls = []
+        details = []
+        times = []
+        for i, t in enumerate(headers):
+            # if the title node is missing then its not a result tag
+            if t is not None:
+                text = t.get_text()
+                duration = track_dur.findall(descriptions[i].text)[0]
+                url = re.search('\/url\?q\=(.*)\&sa', links[i]).group(1)
+
+                titles.append(text)
+                urls.append(url)
+                details.append(descriptions[i])
+                times.append(duration)
+
+        #########################################
         
+        # titles = [ tit.text for tit in soup.findAll('h3', attrs={'class':'r'}) ]
+        ## urls = [ tit.text for tit in soup.findAll('cite') ]
+        # urls = [ tit.a['href'].split('&', 1)[0][7:] for tit in soup.findAll('h3', attrs={'class':'r'}) ]
+
+        # track_dur = re.compile(r'Length (\d+:\d+)[;\s]', re.IGNORECASE)
+        # times = [ track_dur.findall(dur.text)[0] if len(track_dur.findall(dur.text)) > 0  else 'n/a' for dur in soup.findAll('span', attrs={'class':'st'})]
+
         #########################################
         ##### Select the appropriate result #####
         index = 1
@@ -195,6 +235,8 @@ delimiter = None
 #########################################
 search_google = False
 search_str_arg_idx = 1
+
+metadata_log_file = f= open("metadata_log_file.txt", "a+")
 
 if len(sys.argv[1]) == 1:
     if sys.argv[1] == 'g':
@@ -265,12 +307,24 @@ print(data['title'])
 print(artist_l)
 print(data['duration']['minutes'])
 print(str(data['bpm']))
-print(str(data['key']))
+print(data['key'])
 print(data['label']['name'] )
 print(data['audio_format'] )
 print(data['date']['released'])
 print(data['genres'][0]['name'])
 print(str(data['id']))
+
+metadata_log_file.write("{}\n".format(data['title']))
+metadata_log_file.write("{}\n".format(artist_l))
+metadata_log_file.write("{}\n".format(data['duration']['minutes']))
+metadata_log_file.write("{}\n".format(str(data['bpm'])))
+metadata_log_file.write("{}\n".format(data['key'].encode('utf-8')))
+metadata_log_file.write("{}\n".format(data['label']['name'] ))
+metadata_log_file.write("{}\n".format(data['audio_format'] ))
+metadata_log_file.write("{}\n".format(data['date']['released']))
+metadata_log_file.write("{}\n".format(data['genres'][0]['name']))
+metadata_log_file.write("{}\n".format(str(data['id'])))
+metadata_log_file.write("#-----#\n")
 
 # Download track art
 img_dir = "imgs/" 
@@ -285,5 +339,5 @@ print("Finished!")
 #########################################
 
 ########## Open artwork  ############
-os.system('open "'+ img_path + '"')
+# os.system('open "'+ img_path + '"')
 #########################################
