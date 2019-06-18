@@ -151,6 +151,8 @@ class google(object):
         '''
         soup = BeautifulSoup(html, 'html.parser')
         # soup = BeautifulSoup(html, 'lxml')
+
+        # print("Dumping soup html...")
         # with open("soup.html", "w") as file:
         #     file.write(str(soup))
 
@@ -161,7 +163,7 @@ class google(object):
         links = [ tit.find('a', href = True)['href'] for tit in result_div ]
         headers = [ header.find('div', attrs={'class':'vvjwJb'})  for header in result_div  ]
         # headers = [ header.get_text() for header in (r.find('div', attrs={'class':'vvjwJb'}) for r in result_div) if header is not None  ]
-        descriptions = [ soup.find('div', attrs={'class':'s3v9rd'}) for tit in result_div  ]
+        descriptions = [ desc.find('div', attrs={'class':'s3v9rd'}) for desc in result_div  ]
         # descriptions = [ desc.get_text() for desc in (r.find('div', attrs={'class':'s3v9rd'}) for r in result_div) if desc is not None  ]
 
         track_dur = re.compile(r'Length (\d+:\d+)[;\s]', re.IGNORECASE)
@@ -173,13 +175,15 @@ class google(object):
         for i, t in enumerate(headers):
             # if the title node is missing then its not a result tag
             if t is not None:
-                text = t.get_text()
-                duration = track_dur.findall(descriptions[i].text)[0]
-                url = re.search('\/url\?q\=(.*)\&sa', links[i]).group(1)
-
-                titles.append(text)
-                urls.append(url)
                 details.append(descriptions[i])
+
+                text = t.get_text()
+                titles.append(text)
+                
+                url = re.search('\/url\?q\=(.*)\&sa', links[i]).group(1)
+                urls.append(url)
+                
+                duration = track_dur.findall(descriptions[i].text)
                 times.append(duration)
 
         #########################################
