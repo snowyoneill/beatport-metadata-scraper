@@ -31,7 +31,7 @@ class beatport(object):
         :return:
         Html response from server
         '''
-        search = "https://pro.beatport.com/search?"
+        search = "https://beatport.com/search?"
         value = urlencode({"q":str(artist + " " + title)})
 
         print("Request: " + search+value)
@@ -46,6 +46,12 @@ class beatport(object):
         begin = "window.Playables ="
         end = "};"
         soup = BeautifulSoup(html, "html.parser")
+
+
+        # print("Dumping soup html...")
+        # with open("soup.html", "w") as file:
+        #     file.write(str(soup))
+
         tag = soup.find("script",attrs={"id":"data-objects"})
         return tag.string[(tag.string.find(begin)+len(begin)):(tag.string.find(end)+1)]
 
@@ -57,6 +63,7 @@ class beatport(object):
         '''
         begin = "window.ProductDetail ="
         soup = BeautifulSoup(html, "html.parser")
+
         tag = soup.find('script', type='application/ld+json')
         tag = tag.find_next()
         return tag.string[(tag.string.find(begin)+len(begin)):]
@@ -92,7 +99,7 @@ class beatport(object):
         index = 1
         for t in track_list:
             artist_l = beat_api.get_artists(t)
-            print(str(index) + "... " + artist_l + ": " + t['title'] + " - " + t['duration']['minutes'] + " - " + t['key'] + " - " + t['label']['name'] + " - " + str(t['id']))
+            print(str(index) + "... " + artist_l + ": " + t['name'] + " (" + t['mix'] + ")" + " - " + t['duration']['minutes'] + " - " + t['key'] + " - " + t['label']['name'] + " - " + str(t['id']))
             index = index + 1
         #########################################
 
@@ -159,6 +166,11 @@ class google(object):
         #########################################
         ##### Parse Google search results ######
         result_div = soup.find_all('div', attrs = {'class': 'ZINbbc'})
+
+        noResults = soup(text=re.compile('did not match any documents'))
+        if len(noResults) > 0:
+            print("NO RESULTS...")
+            sys.exit()
 
         links = [ tit.find('a', href = True)['href'] for tit in result_div ]
         headers = [ header.find('div', attrs={'class':'vvjwJb'})  for header in result_div  ]
@@ -295,7 +307,7 @@ if not search_google:
 artist_l = beat_api.get_artists(data)
 
 print()
-# print("Title: \t\t" + data['title'])
+# print("Title: \t\t" + title)
 # print("Artist(s): \t" + artist_l)
 # print("Duration: \t" + data['duration']['minutes'])
 # print("BPM: \t\t" + str(data['bpm']))
@@ -306,8 +318,12 @@ print()
 # print("Genre: \t\t" + data['genres'][0]['name'])
 # print("ID: \t\t" + str(data['id']))
 
+title = data['name']
+if ('mix' in data):
+    title = title + " (" + data['mix'] + ")"
+
 print("Title : Artist(s): Duration: BPM: Key: Label: Format: Released: Genre: ID")
-print(data['title'])
+print(title)
 print(artist_l)
 print(data['duration']['minutes'])
 print(str(data['bpm']))
@@ -318,7 +334,7 @@ print(data['date']['released'])
 print(data['genres'][0]['name'])
 print(str(data['id']))
 
-metadata_log_file.write("{}\n".format(data['title']))
+metadata_log_file.write("{}\n".format(title))
 metadata_log_file.write("{}\n".format(artist_l))
 metadata_log_file.write("{}\n".format(data['duration']['minutes']))
 metadata_log_file.write("{}\n".format(str(data['bpm'])))
@@ -332,10 +348,19 @@ metadata_log_file.write("#-----#\n")
 
 # Download track art
 img_dir = "imgs/" 
-title = data['title'].replace("/", "-")
-img_path = img_dir + title + ".jpg"
+title = title.replace("/", "-")
+img_path = img_dir + artist_l + " - " + title + ".jpg"
 print("Saving albumart...")
-response = requests.get(data['images']['large']['url'])
+
+IMG_W, IMG_H = 500, 500 
+available_params = {'w': IMG_W, 'h': IMG_H }
+
+# print(data['images']['dynamic']['url'])
+# print(data['images']['dynamic']['url'].format(**available_params))
+
+response = requests.get(data['images']['dynamic']['url'].format(**available_params))
+# response = requests.get(data['images']['large']['url'])
+
 if response.ok:
     with open(img_path, 'wb') as f:
         f.write(response.content)
