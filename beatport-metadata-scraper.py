@@ -61,12 +61,13 @@ class beatport(object):
         :return:
         Only json string
         '''
-        begin = "window.ProductDetail ="
-        soup = BeautifulSoup(html, "html.parser")
 
-        tag = soup.find('script', type='application/ld+json')
-        tag = tag.find_next()
-        return tag.string[(tag.string.find(begin)+len(begin)):]
+        # begin = "window.ProductDetail ="
+        soup = BeautifulSoup(html, "html.parser")
+        tag = soup.find('script', type='application/json')
+        # tag = tag.find_next()
+        # return tag.string[(tag.string.find(begin)+len(begin)):]
+        return tag.string[0:len(tag.string)]
 
     def get_artists(self, track_list):
         '''
@@ -165,7 +166,7 @@ class google(object):
 
         #########################################
         ##### Parse Google search results ######
-        result_div = soup.find_all('div', attrs = {'class': 'ZINbbc'})
+        result_div = soup.find_all('div', attrs = {'class': 'Gx5Zad'})
 
         noResults = soup(text=re.compile('did not match any documents'))
         if len(noResults) > 0:
@@ -237,7 +238,9 @@ class google(object):
 
         #########################################
         #### Query beatport for specific url ####
-        track_query = requests.get(url).text
+        # track_query = requests.get(url, {"User-Agent": ua.random}).text
+        headers = {"User-Agent": ua.random}
+        track_query = requests.get(url, headers=headers).text
         raw = beat_api.jsonify_id(track_query)
         #########################################
         return raw
@@ -303,6 +306,9 @@ if not search_google:
 #     json.dump(raw, outfile)
 #########################################
 
+data = data['props']['pageProps']['track']
+# print(data)
+
 ############ Print metadata #############
 artist_l = beat_api.get_artists(data)
 
@@ -319,30 +325,30 @@ print()
 # print("ID: \t\t" + str(data['id']))
 
 title = data['name']
-if ('mix' in data):
-    title = title + " (" + data['mix'] + ")"
+if ('mix_name' in data):
+    title = title + " (" + data['mix_name'] + ")"
 
 print("Title : Artist(s): Duration: BPM: Key: Label: Format: Released: Genre: ID")
 print(title)
 print(artist_l)
-print(data['duration']['minutes'])
+print(data['length'])
 print(str(data['bpm']))
-print(data['key'])
-print(data['label']['name'] )
-print(data['audio_format'] )
-print(data['date']['released'])
-print(data['genres'][0]['name'])
+print(data['key']['name'])
+print(data['release']['label']['name'] )
+print('mp3')
+print(data['publish_date'])
+print(data['genre']['name'])
 print(str(data['id']))
 
 metadata_log_file.write("{}\n".format(title))
 metadata_log_file.write("{}\n".format(artist_l))
-metadata_log_file.write("{}\n".format(data['duration']['minutes']))
+metadata_log_file.write("{}\n".format(data['length']))
 metadata_log_file.write("{}\n".format(str(data['bpm'])))
-metadata_log_file.write("{}\n".format(data['key']))
-metadata_log_file.write("{}\n".format(data['label']['name'] ))
-metadata_log_file.write("{}\n".format(data['audio_format'] ))
-metadata_log_file.write("{}\n".format(data['date']['released']))
-metadata_log_file.write("{}\n".format(data['genres'][0]['name']))
+metadata_log_file.write("{}\n".format(data['key']['name']))
+metadata_log_file.write("{}\n".format(data['release']['label']['name'] ))
+metadata_log_file.write("{}\n".format('mp3' ))
+metadata_log_file.write("{}\n".format(data['publish_date']))
+metadata_log_file.write("{}\n".format(data['genre']['name']))
 metadata_log_file.write("{}\n".format(str(data['id'])))
 metadata_log_file.write("#-----#\n")
 
@@ -352,13 +358,14 @@ title = title.replace("/", "-")
 img_path = img_dir + artist_l + " - " + title + ".jpg"
 print("Saving albumart...")
 
-IMG_W, IMG_H = 500, 500 
-available_params = {'w': IMG_W, 'h': IMG_H }
+# IMG_W, IMG_H = 500, 500 
+# available_params = {'w': IMG_W, 'h': IMG_H }
 
 # print(data['images']['dynamic']['url'])
 # print(data['images']['dynamic']['url'].format(**available_params))
 
-response = requests.get(data['images']['dynamic']['url'].format(**available_params))
+response = requests.get(data['release']['label']['image']['uri'])
+# response = requests.get(data['images']['dynamic']['url'].format(**available_params))
 # response = requests.get(data['images']['large']['url'])
 
 if response.ok:
