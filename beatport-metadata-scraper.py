@@ -16,6 +16,8 @@ import re
 from fake_useragent import UserAgent
 ua = UserAgent()
 
+import datetime
+
 #########################################
 # Beatport class for searching and extracting track metadata
 #########################################
@@ -35,7 +37,9 @@ class beatport(object):
         value = urlencode({"q":str(artist + " " + title)})
 
         print("Request: " + search+value)
-        return requests.get(search+value).text
+        # return requests.get(search+value).text
+        headers = {"User-Agent": ua.random}
+        return requests.get(search+value, headers=headers).text
 
     def jsonify(self, html):
         '''
@@ -43,17 +47,20 @@ class beatport(object):
         :return:
         Only json string
         '''
-        begin = "window.Playables ="
-        end = "};"
+        # begin = "window.Playables ="
+        # end = "};"
+        # soup = BeautifulSoup(html, "html.parser")
         soup = BeautifulSoup(html, "html.parser")
+        tag = soup.find('script', type='application/json')
 
+        print("Dumping soup html...")
+        with open("soup.html", "w") as file:
+            file.write(str(soup))            
 
-        # print("Dumping soup html...")
-        # with open("soup.html", "w") as file:
-        #     file.write(str(soup))
+        # tag = soup.find("script",attrs={"id":"data-objects"})
+        # return tag.string[(tag.string.find(begin)+len(begin)):(tag.string.find(end)+1)]
 
-        tag = soup.find("script",attrs={"id":"data-objects"})
-        return tag.string[(tag.string.find(begin)+len(begin)):(tag.string.find(end)+1)]
+        return tag.string[0:len(tag.string)]
 
     def jsonify_id(self, html):
         '''
@@ -78,11 +85,15 @@ class beatport(object):
         artist_str = ""
         artists_len = len(track_list['artists'])
 
+        tag = 'name'
+        if 'artist_name' in track_list['artists'][0]:
+            tag = 'artist_name'
+
         if artists_len == 1:
-            artist_str = track_list['artists'][0]['name']
+            artist_str = track_list['artists'][0][tag]
         elif artists_len > 1:
             for idx, l in enumerate(track_list['artists']):
-                artist_str = artist_str + l['name']
+                artist_str = artist_str + l[tag]
                 
                 if idx < artists_len - 1:
                     artist_str = artist_str + ", "
@@ -94,13 +105,22 @@ class beatport(object):
         Json array of track data
         :return:
         Single json string
-        '''           
-        track_list = [t for t in track_list['tracks'] if t['component'] != "None"]
+        '''
+        # track_list = track_list['props']['pageProps']['dehydratedState']['queries'][0]['state']['data']
+        track_list = [t for t in track_list['props']['pageProps']['dehydratedState']['queries'][0]['state']['data']['tracks']['data']]
+
+        # for t in track_list:
+        #     print(t)
+        #     print("---")
+        # print(track_list)
+        # exit(0)
+
         print('Search results:...' + str(len(track_list)))
         index = 1
         for t in track_list:
             artist_l = beat_api.get_artists(t)
-            print(str(index) + "... " + artist_l + ": " + t['name'] + " (" + t['mix'] + ")" + " - " + t['duration']['minutes'] + " - " + t['key'] + " - " + t['label']['name'] + " - " + str(t['id']))
+            # print(str(index) + "... " + artist_l + ": " + t['name'] + " (" + t['mix'] + ")" + " - " + t['duration']['minutes'] + " - " + t['key'] + " - " + t['label']['name'] + " - " + str(t['id']))
+            print(str(index) + "... " + (t['release_date'])[:10] + " - " + ':'.join(str((datetime.timedelta(seconds=t['length']//1000))).split(':')[1:3])  + " - " + str(t['track_id']) + "\t- " + artist_l + " - " + t['mix_name'] + " -> " + t['label']['label_name'])
             index = index + 1
         #########################################
 
@@ -299,6 +319,7 @@ if not search_google:
     track_query = beat_api.query(artist, track)
     raw = beat_api.jsonify(track_query)
     track_list = json.loads(raw)
+    # print(track_list)
     data = beat_api.choose_track(track_list)
 
 ###### Write out json data to file ######
@@ -306,7 +327,8 @@ if not search_google:
 #     json.dump(raw, outfile)
 #########################################
 
-data = data['props']['pageProps']['track']
+if search_google:
+    data = data['props']['pageProps']['track']
 # print(data)
 
 ############ Print metadata #############
@@ -324,32 +346,56 @@ print()
 # print("Genre: \t\t" + data['genres'][0]['name'])
 # print("ID: \t\t" + str(data['id']))
 
-title = data['name']
+tag = 'name'
+if 'track_name' in data:
+    tag = 'track_name'
+
+title = data[tag]
 if ('mix_name' in data):
     title = title + " (" + data['mix_name'] + ")"
+
+bpm = str(data['bpm'])
+
+if search_google:
+    length = data['length']    
+    date = data['publish_date']
+    key = data['key']['name']
+    label = data['release']['label']['name']
+    genre = data['genre']['name']
+    track_id = str(data['id'])
+    image = data['release']['image']['uri']
+
+if not search_google:
+    length = ':'.join(str((datetime.timedelta(seconds=data['length']//1000))).split(':')[1:3]).lstrip('0')
+    date = data['publish_date'][:10]
+    key = data['key_name']
+    label = data['label']['label_name']
+    genre = data['genre'][0]['genre_name']
+    track_id = str(data['track_id'])
+    image = data['release']['release_image_uri']
 
 print("Title : Artist(s): Duration: BPM: Key: Label: Format: Released: Genre: ID")
 print(title)
 print(artist_l)
-print(data['length'])
-print(str(data['bpm']))
-print(data['key']['name'])
-print(data['release']['label']['name'] )
+print(length)
+print(bpm)
+print(key)
+print(label)
 print('mp3')
-print(data['publish_date'])
-print(data['genre']['name'])
-print(str(data['id']))
+print(date)
+print(genre)
+print(track_id)
 
 metadata_log_file.write("{}\n".format(title))
 metadata_log_file.write("{}\n".format(artist_l))
-metadata_log_file.write("{}\n".format(data['length']))
-metadata_log_file.write("{}\n".format(str(data['bpm'])))
-metadata_log_file.write("{}\n".format(data['key']['name']))
-metadata_log_file.write("{}\n".format(data['release']['label']['name'] ))
+metadata_log_file.write("{}\n".format(length))
+metadata_log_file.write("{}\n".format(bpm))
+metadata_log_file.write("{}\n".format(key))
+metadata_log_file.write("{}\n".format(label))
 metadata_log_file.write("{}\n".format('mp3' ))
-metadata_log_file.write("{}\n".format(data['publish_date']))
-metadata_log_file.write("{}\n".format(data['genre']['name']))
-metadata_log_file.write("{}\n".format(str(data['id'])))
+metadata_log_file.write("{}\n".format(date))
+metadata_log_file.write("{}\n".format(genre))
+metadata_log_file.write("{}\n".format(track_id))
 metadata_log_file.write("#-----#\n")
 
 # Download track art
@@ -358,13 +404,24 @@ title = title.replace("/", "-")
 img_path = img_dir + artist_l + " - " + title + ".jpg"
 print("Saving albumart...")
 
-# IMG_W, IMG_H = 500, 500 
+# IMG_W, IMG_H = 500, 500
 # available_params = {'w': IMG_W, 'h': IMG_H }
+
+"https://geo-media.beatport.com/image_size/1400x1400/2520e368-173e-43c4-874a-d42346ffe173.jpg"
+
+dimensions_regex = r"/(\d+x\d+)/"
+matches = re.findall(dimensions_regex, image)
+if len(matches) > 0:
+    image_dimensions = matches[0]
+
+# Replacing the image dimensions in the URI using regex
+new_dimensions = "500x500"  # The new dimensions you want to use
+new_uri = re.sub(dimensions_regex, f"/{new_dimensions}/", image)
 
 # print(data['images']['dynamic']['url'])
 # print(data['images']['dynamic']['url'].format(**available_params))
 
-response = requests.get(data['release']['label']['image']['uri'])
+response = requests.get(new_uri)
 # response = requests.get(data['images']['dynamic']['url'].format(**available_params))
 # response = requests.get(data['images']['large']['url'])
 
