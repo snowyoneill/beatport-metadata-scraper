@@ -120,7 +120,7 @@ class beatport(object):
         for t in track_list:
             artist_l = beat_api.get_artists(t)
             # print(str(index) + "... " + artist_l + ": " + t['name'] + " (" + t['mix'] + ")" + " - " + t['duration']['minutes'] + " - " + t['key'] + " - " + t['label']['name'] + " - " + str(t['id']))
-            print(str(index) + "... " + (t['release_date'])[:10] + " - " + ':'.join(str((datetime.timedelta(seconds=t['length']//1000))).split(':')[1:3])  + " - " + str(t['track_id']) + "\t- " + artist_l + " - " + t['mix_name'] + " -> " + t['label']['label_name'])
+            print(str(index) + "... " + (t['release_date'])[:10] + " - " + ':'.join(str((datetime.timedelta(seconds=t['length']//1000))).split(':')[1:3])  + " - " + str(t['track_id']) + "\t- " + artist_l + " - " + t['track_name'] + "(" + t['mix_name'] + ") -> " + t['label']['label_name'])
             index = index + 1
         #########################################
 
